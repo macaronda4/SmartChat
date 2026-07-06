@@ -1,7 +1,6 @@
 package mdf.works.smartchat.client.mixin;
 
 import mdf.works.smartchat.client.ReceveChatCallBack;
-import mdf.works.smartchat.client.SmartchatClient;
 import net.minecraft.Optionull;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.multiplayer.chat.GuiMessageSource;import net.minecraft.client.multiplayer.chat.GuiMessageTag;import net.minecraft.network.chat.Component;import net.minecraft.network.chat.MessageSignature;import org.spongepowered.asm.mixin.Mixin;
