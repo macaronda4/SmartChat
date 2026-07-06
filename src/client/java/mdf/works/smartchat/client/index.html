@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WebSocket Chat</title>
+    <style>
+        :root {
+            --primary-color: #007aff;
+            --bg-color: #edffdb;
+            --text-color: #333;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body, html {
+            height: 100%;
+            background-color: var(--bg-color);
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100dvh;
+        }
+
+        /* ヘッダー */
+        .header {
+            background-color: #d0e0bf;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ccc;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .header-title {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .header-buttons button {
+            padding: 6px 12px;
+            margin-left: 5px;
+            background-color: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .header-buttons button:active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .chat-history {
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            background-color: #edffdb;
+        }
+
+        .message-row {
+            padding: 12px 15px;
+            word-wrap: break-word;
+            line-height: 1.5;
+            border-bottom: 1px solid #eee;
+        }
+
+        .message-row:nth-child(odd) {
+            background-color: #ffffff;
+        }
+        .message-row:nth-child(even) {
+            background-color: #f9f9fa;
+        }
+
+        .sender-me {
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .sender-other {
+            color: #ff3b30;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .system-message {
+            text-align: center;
+            font-size: 0.85em;
+            color: #888;
+            padding: 10px;
+            background-color: var(--bg-color);
+        }
+
+        .input-area {
+            display: flex;
+            padding: 10px;
+            background-color: #fff;
+            border-top: 1px solid #ccc;
+            /*padding-bottom: env(safe-area-inset-bottom, 10px);*/
+        }
+
+        .input-area input {
+            flex-grow: 1;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .input-area button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 0 20px;
+            margin-left: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .input-area button:disabled {
+            background-color: #ccc;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: #dbedff;
+            padding: 20px;
+            border-radius: 12px;
+            width: 80%;
+            max-width: 320px;
+            box-shadow: 0 8px 12px rgba(0,0,0,0.1);
+        }
+
+        .modal-content h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .modal-content .form-group {
+            margin-bottom: 15px;
+        }
+
+        .modal-content label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #666;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-cancel {
+            background-color: #e5e5ea;
+            color: #333;
+        }
+
+        .btn-submit {
+            background-color: var(--primary-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="connectionModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>サーバーに接続</h2>
+            <div class="form-group">
+                <label for="addressInput">アドレス (例: localhost)</label>
+                <input type="text" id="addressInput" value="localhost">
+            </div>
+            <div class="form-group">
+                <label for="portInput">ポート番号 (例: 8080)</label>
+                <input type="number" id="portInput" value="8080">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+                <button class="btn-submit" onclick="connectWebSocket()">接続</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <div class="header">
+            <div class="header-title" id="headerTitle">未接続</div>
+            <div class="header-buttons">
+                <button id="btnConnect" onclick="openModal()">接続</button>
+                <button id="btnDisconnect" onclick="disconnectWebSocket()" style="display: none;">切断</button>
+                <button id="btnReconnect" onclick="reconnectWebSocket()" style="display: none;">再接続</button>
+            </div>
+        </div>
+        
+        <div class="chat-history" id="chatHistory">
+            </div>
+
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="メッセージを入力..." disabled onkeypress="handleKeyPress(event)">
+            <button id="sendBtn" onclick="sendMessage()" disabled>送信</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let savedAddress = 'localhost';
+        let savedPort = '8080';
+
+        const chatHistory = document.getElementById('chatHistory');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const headerTitle = document.getElementById('headerTitle');
+        const connectionModal = document.getElementById('connectionModal');
+        
+        const btnConnect = document.getElementById('btnConnect');
+        const btnDisconnect = document.getElementById('btnDisconnect');
+        const btnReconnect = document.getElementById('btnReconnect');
+
+        
+        function updateUIState(isConnected) {
+            btnConnect.style.display = isConnected ? 'none' : 'inline-block';
+            btnDisconnect.style.display = isConnected ? 'inline-block' : 'none';
+            btnReconnect.style.display = isConnected ? 'inline-block' : 'none';
+            
+            messageInput.disabled = !isConnected;
+            sendBtn.disabled = !isConnected;
+            headerTitle.textContent = isConnected ? "接続済み" : "未接続";
+        }
+
+        
+        function openModal() {
+            document.getElementById('addressInput').value = savedAddress;
+            document.getElementById('portInput').value = savedPort;
+            connectionModal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            connectionModal.style.display = 'none';
+        }
+
+        
+        function connectWebSocket() {
+            const address = document.getElementById('addressInput').value.trim();
+            const port = document.getElementById('portInput').value.trim();
+
+            if (!address || !port) {
+                alert("アドレスとポート番号を入力してください。");
+                return;
+            }
+
+            savedAddress = address;
+            savedPort = port;
+            closeModal();
+            initiateConnection();
+        }
+
+        
+        function initiateConnection() {
+            if (ws) {
+                ws.close();
+            }
+
+            const wsUrl = `ws://${savedAddress}:${savedPort}`;
+            addSystemMessage(`接続試行中: ${wsUrl}...`);
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    updateUIState(true);
+                    addSystemMessage("サーバーに接続しました。");
+                    messageInput.focus();
+                };
+
+                ws.onmessage = (event) => {
+                    data = event.data.split(",")
+                    msg = event.data.replace(data[0]+",","")
+                    if(data[0] == "PLChat"){
+                        addMessageToUI(msg);
+                    }
+                    else{
+                        addSystemMessage(msg)
+                    }
+                };
+
+                ws.onclose = () => {
+                    updateUIState(false);
+                    addSystemMessage("サーバーから切断されました。");
+                    ws = null;
+                };
+
+                ws.onerror = (error) => {
+                    addSystemMessage("接続エラーが発生しました。");
+                    console.error("WebSocket Error:", error);
+                };
+
+            } catch (e) {
+                addSystemMessage("無効なURLまたは接続に失敗しました。");
+                updateUIState(false);
+            }
+        }
+
+        
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+            }
+        }
+
+        function reconnectWebSocket() {
+            disconnectWebSocket();
+            setTimeout(() => {
+                initiateConnection();
+            }, 100);
+        }
+
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (text && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(text);
+                messageInput.value = '';
+                messageInput.focus();
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function isScrolledToBottom() {
+            return (chatHistory.scrollHeight - chatHistory.scrollTop) <= (chatHistory.clientHeight + 5);
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, function(match) {
+                const escapeMap = {
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                };
+                return escapeMap[match];
+            });
+        }
+
+        function linkify(text) {
+            const safeText = escapeHTML(text);
+            
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            
+            return safeText.replace(urlRegex, function(url) {
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+            });
+        }
+
+        function addMessageToUI(text, senderType) {
+            const atBottom = isScrolledToBottom();
+            const rowDiv = document.createElement('div');
+            rowDiv.classList.add('message-row');
+
+            const textSpan = document.createElement('span');
+
+            textSpan.innerHTML = linkify(text);
+            
+            rowDiv.appendChild(textSpan);            
+            chatHistory.appendChild(rowDiv);
+            if(atBottom){
+                scrollToBottom();
+            }
+        }
+
+        function addSystemMessage(text) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('system-message');
+            msgDiv.textContent = text;
+            chatHistory.appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+    </script>
+</body>
+</html>
