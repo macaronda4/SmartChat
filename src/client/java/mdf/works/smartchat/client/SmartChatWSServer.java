@@ -39,5 +39,6 @@ public class SmartChatWSServer extends WebSocketServer {
     @Override
     public void onStart() {
         System.out.println("[WS Server] サーバーが" + getAddress() + " で起動しました！");
+
     }
 }
