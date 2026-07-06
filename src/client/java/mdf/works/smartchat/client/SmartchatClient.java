@@ -1,9 +1,8 @@
 package mdf.works.smartchat.client;
 
+import mdf.works.smartchat.config.ConfigManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
-import net.fabricmc.fabric.api.event.EventFactory;
-import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionResult;
 
@@ -16,7 +15,8 @@ public class SmartchatClient implements ClientModInitializer {
     public void onInitializeClient() {
 
         ClientPlayConnectionEvents.JOIN.register((clientPacketListener,packetSender,minecraft) -> {
-            wsServer = new SmartChatWSServer(8080) {
+            ConfigManager.load();
+            wsServer = new SmartChatWSServer(ConfigManager.INSTANCE.webSocketPort) {
                 @Override
                 public void onMessage(org.java_websocket.WebSocket conn, String message) {
                     if (""  .equals(message)) return;
@@ -35,7 +35,6 @@ public class SmartchatClient implements ClientModInitializer {
         ClientPlayConnectionEvents.DISCONNECT.register((clientPacketListener,minecraft) -> {
             if (wsServer != null) {
                 try {
-                    // ワールドを閉じる時にWebSocketサーバーも安全に終了させる
                     wsServer.stop();
                     System.out.println("[WS Server] WebSocketサーバーを停止しました。");
                 } catch (InterruptedException e) {
@@ -45,9 +44,9 @@ public class SmartchatClient implements ClientModInitializer {
         });
 
 
-        ReceveChatCallBack.EVENT.register((chatmsg ) -> {
+        ReceveChatCallBack.EVENT.register((chatmsg, MessageTag) -> {
             if (wsServer != null) {
-                wsServer.broadcast(chatmsg);
+                wsServer.broadcast(MessageTag+","+chatmsg);
             }
             return InteractionResult.PASS;
         });
