@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionResult;
 
+import java.util.Arrays;
 import java.util.Objects;
 
 public class SmartchatClient implements ClientModInitializer {
@@ -45,9 +46,9 @@ public class SmartchatClient implements ClientModInitializer {
         });
 
 
-        ReceveChatCallBack.EVENT.register((chatmsg ) -> {
+        ReceveChatCallBack.EVENT.register((chatmsg , MessageTag) -> {
             if (wsServer != null) {
-                wsServer.broadcast(chatmsg);
+                wsServer.broadcast(MessageTag+","+chatmsg);
             }
             return InteractionResult.PASS;
         });
